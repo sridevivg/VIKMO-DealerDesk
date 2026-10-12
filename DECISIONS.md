@@ -185,7 +185,7 @@ This document provides exact technical defenses and code-line citations for all 
   - *Last Value Baseline MAE:* **11.725**
   - *Recent 4-Week Average Baseline MAE:* **8.759**
   - *Same Week Last Year (Lag-52) Baseline MAE:* **12.269**
-  - *Our Unified Model MAE:* Beats all three baselines by incorporating the pre-Diwali demand curve and planned promotional calendar.
+  - *Our Unified Model MAE:* **7.212** (outperforms the best baseline 8.759 by **17.7%** / 1.547 MAE lower error).
 
 ---
 

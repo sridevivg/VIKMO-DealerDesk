@@ -51,9 +51,9 @@ def compute_weeks_to_diwali(week_start_str, diwali_map):
     return int(round(delta_days / 7.0))
 
 
-def evaluate_baselines(sales_df, leads_df, val_weeks):
+def evaluate_baselines(sales_df, leads_df, val_weeks, diwali_map=None):
     """
-    Evaluates the 3 baselines on the validation period strictly without future leakage.
+    Evaluates the 3 baselines and our unified model on the validation period strictly without future leakage.
     Cutoff date stops future data from leaking into training:
     """
     # LEAKAGE BARRIER: line below strictly filters out any validation/future records
@@ -65,9 +65,14 @@ def evaluate_baselines(sales_df, leads_df, val_weeks):
     last_val_preds = []
     avg4_preds = []
     lag52_preds = []
+    model_preds = []
     actuals = []
 
     last_train_week = train_history["week_start"].max()
+
+    p_units = train_history[train_history["promo_flag"] == 1]["units_sold"]
+    np_units = train_history[train_history["promo_flag"] == 0]["units_sold"]
+    p_mult = (p_units.mean() / np_units.mean()) if np_units.mean() > 0 else 2.22
 
     for sku in skus:
         sku_hist = train_history[train_history["sku"] == sku].sort_values("week_start")
@@ -81,6 +86,13 @@ def evaluate_baselines(sales_df, leads_df, val_weeks):
         last_4_vals = sku_hist.tail(4)["units_sold"].values
         avg_4 = np.mean(last_4_vals) if len(last_4_vals) > 0 else 0.0
 
+        n_weeks = len(sku_hist)
+        units = sku_hist["units_sold"].values
+        mean_all = units.mean() if n_weeks > 0 else 10.0
+        last_4_mean = units[-4:].mean() if n_weeks >= 4 else mean_all
+        last_12_mean = units[-12:].mean() if n_weeks >= 12 else mean_all
+        zero_pct = (units == 0).sum() / float(n_weeks) if n_weeks > 0 else 0
+
         for idx, row in sku_val.iterrows():
             w_act = row["units_sold"]
             actuals.append(w_act)
@@ -88,25 +100,44 @@ def evaluate_baselines(sales_df, leads_df, val_weeks):
             avg4_preds.append(avg_4)
 
             # Baseline 3: Same week last year (52 weeks ago)
-            # Find sales in week exactly ~52 weeks prior
             target_dt = datetime.strptime(row["week_start"], "%Y-%m-%d")
-            # 52 weeks = 364 days
             approx_ly_start = (target_dt - pd.Timedelta(weeks=52)).strftime("%Y-%m-%d")
             ly_row = sku_hist[sku_hist["week_start"] == approx_ly_start]["units_sold"].values
             lag52_val = ly_row[0] if len(ly_row) > 0 else avg_4
             lag52_preds.append(lag52_val)
 
+            # Unified Model prediction on validation row
+            w_to_diwali = compute_weeks_to_diwali(row["week_start"], diwali_map) if diwali_map else 0
+            diwali_lift = 1.0 + (0.07 * (6 + w_to_diwali)) if (-6 <= w_to_diwali <= -1) else 1.0
+
+            if n_weeks < 12:
+                base_pred = last_4_mean * 0.7 + units[-1] * 0.3
+            elif zero_pct > 0.5:
+                nonzero = units[units > 0]
+                base_pred = (1.0 - zero_pct) * np.median(nonzero) if len(nonzero) > 0 else 0.5
+            else:
+                base_pred = 0.55 * last_4_mean + 0.30 * lag52_val + 0.15 * last_12_mean
+
+            pred = base_pred * diwali_lift
+            if row.get("promo_flag", 0):
+                pred *= (p_mult * 0.90)
+            model_preds.append(round(max(0.0, float(pred)), 1))
+
     mae_last = np.mean(np.abs(np.array(actuals) - np.array(last_val_preds)))
     mae_avg4 = np.mean(np.abs(np.array(actuals) - np.array(avg4_preds)))
     mae_lag52 = np.mean(np.abs(np.array(actuals) - np.array(lag52_preds)))
+    mae_model = np.mean(np.abs(np.array(actuals) - np.array(model_preds)))
 
     print(f"=== BASELINE EVALUATION (Validation Weeks: {val_weeks}) ===")
-    print(f"1. Last Value Baseline MAE:        {mae_last:.3f}")
-    print(f"2. Recent 4-Week Average MAE:      {mae_avg4:.3f}")
+    print(f"1. Last Value Baseline MAE:          {mae_last:.3f}")
+    print(f"2. Recent 4-Week Average MAE:        {mae_avg4:.3f}")
     print(f"3. Same Week Last Year (Lag-52) MAE: {mae_lag52:.3f}")
     best_baseline = min(mae_last, mae_avg4, mae_lag52)
-    print(f"-> Best baseline MAE to beat:      {best_baseline:.3f}")
-    return best_baseline
+    print(f"-> Best baseline MAE to beat:        {best_baseline:.3f}")
+    print(f"4. Unified Model Validation MAE:     {mae_model:.3f}")
+    improvement_pct = ((best_baseline - mae_model) / best_baseline) * 100
+    print(f"-> Outperforms best baseline by:     {improvement_pct:.1f}% ({best_baseline - mae_model:.3f} MAE improvement)")
+    return best_baseline, mae_model
 
 
 def generate_forecast(data_dir="data", output_path="ml/forecast.csv"):
@@ -115,7 +146,7 @@ def generate_forecast(data_dir="data", output_path="ml/forecast.csv"):
 
     # 1. Evaluate baselines on the last 4 weeks of history (2026-08-31 to 2026-09-21)
     val_weeks = ["2026-08-31", "2026-09-07", "2026-09-14", "2026-09-21"]
-    evaluate_baselines(sales, leads, val_weeks)
+    evaluate_baselines(sales, leads, val_weeks, diwali_map=diwali_map)
 
     # 2. Fit forecast models for each of the 40 forecast SKUs
     # Promotion lift factor in historical data
