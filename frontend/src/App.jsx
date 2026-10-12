@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Package, ShoppingCart, Bot, TrendingUp, Layers, Activity } from "lucide-react";
+import { Package, ShoppingCart, MessageSquare, TrendingUp, Layers } from "lucide-react";
 import CatalogueView from "./components/CatalogueView.jsx";
 import OrderManager from "./components/OrderManager.jsx";
 import AssistantChat from "./components/AssistantChat.jsx";
@@ -42,77 +42,83 @@ export default function App() {
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Top Navbar */}
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-page)" }}>
+      {/* Compact Professional Header */}
       <header
         style={{
-          background: "rgba(17, 24, 39, 0.95)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid var(--border-color)",
-          padding: "0.85rem 1.5rem",
+          background: "var(--bg-surface)",
+          borderBottom: "1px solid var(--border-light)",
+          padding: "0.75rem 1.5rem",
           position: "sticky",
           top: 0,
           zIndex: 100,
         }}
       >
-        <div style={{ maxWidth: "1400px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div
+          style={{
+            maxWidth: "1360px",
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem",
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Product Identity */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
             <div
               style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                width: "28px",
+                height: "28px",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--bg-charcoal)",
+                color: "var(--text-inverse)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 15px rgba(59, 130, 246, 0.4)",
               }}
             >
-              <Layers size={22} color="white" />
+              <Layers size={16} />
             </div>
             <div>
-              <h1 style={{ fontSize: "1.15rem", fontWeight: "800", letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
-                VIKMO <span style={{ color: "var(--accent-primary)" }}>DealerDesk</span>
+              <h1
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: "700",
+                  letterSpacing: "-0.01em",
+                  color: "var(--text-primary)",
+                  lineHeight: 1.2,
+                }}
+              >
+                VIKMO DealerDesk
               </h1>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "block", marginTop: "-2px" }}>
-                AI-Native Commerce OS · Bengaluru Hub
-              </span>
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <nav style={{ display: "flex", gap: "0.5rem" }}>
+          {/* Simple Navigation */}
+          <nav style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
             <button
               onClick={() => setActiveTab("catalogue")}
-              className={activeTab === "catalogue" ? "btn-primary" : "btn-secondary"}
-              style={{ padding: "0.5rem 1rem", fontSize: "0.88rem" }}
+              className={`nav-btn ${activeTab === "catalogue" ? "active" : ""}`}
             >
-              <Package size={16} /> Catalogue & Stock
+              <Package size={15} /> Catalogue & Stock
             </button>
             <button
               onClick={() => setActiveTab("orders")}
-              className={activeTab === "orders" ? "btn-primary" : "btn-secondary"}
-              style={{ padding: "0.5rem 1rem", fontSize: "0.88rem", position: "relative" }}
+              className={`nav-btn ${activeTab === "orders" ? "active" : ""}`}
             >
-              <ShoppingCart size={16} /> Orders & Cart
+              <ShoppingCart size={15} /> Orders & Cart
               {totalCartCount > 0 && (
                 <span
                   style={{
-                    position: "absolute",
-                    top: "-5px",
-                    right: "-5px",
-                    background: "var(--danger)",
-                    color: "white",
-                    borderRadius: "50%",
-                    width: "20px",
-                    height: "20px",
-                    fontSize: "0.75rem",
-                    fontWeight: "bold",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    marginLeft: "0.25rem",
+                    padding: "0.1rem 0.45rem",
+                    borderRadius: "999px",
+                    fontSize: "0.7rem",
+                    fontWeight: "600",
+                    background: activeTab === "orders" ? "var(--bg-surface)" : "var(--bg-charcoal)",
+                    color: activeTab === "orders" ? "var(--text-primary)" : "var(--text-inverse)",
                   }}
                 >
                   {totalCartCount}
@@ -121,30 +127,45 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab("assistant")}
-              className={activeTab === "assistant" ? "btn-primary" : "btn-secondary"}
-              style={{ padding: "0.5rem 1rem", fontSize: "0.88rem" }}
+              className={`nav-btn ${activeTab === "assistant" ? "active" : ""}`}
             >
-              <Bot size={16} /> Dealer Assistant
+              <MessageSquare size={15} /> Dealer Support
             </button>
             <button
               onClick={() => setActiveTab("reorders")}
-              className={activeTab === "reorders" ? "btn-primary" : "btn-secondary"}
-              style={{ padding: "0.5rem 1rem", fontSize: "0.88rem" }}
+              className={`nav-btn ${activeTab === "reorders" ? "active" : ""}`}
             >
-              <TrendingUp size={16} /> Reorders & ML
+              <TrendingUp size={15} /> Reorders & Forecasts
             </button>
           </nav>
 
-          {/* Live System Indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-            <Activity size={14} color="var(--success)" />
+          {/* System Connection Indicator */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              fontSize: "0.75rem",
+              color: "var(--text-muted)",
+              fontWeight: 500,
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: "#16a34a",
+                display: "inline-block",
+              }}
+            />
             <span>API Online :8000</span>
           </div>
         </div>
       </header>
 
-      {/* Main Content Body */}
-      <main style={{ maxWidth: "1400px", margin: "0 auto", padding: "1.5rem", width: "100%", flex: 1 }}>
+      {/* Main Workspace */}
+      <main style={{ maxWidth: "1360px", margin: "0 auto", padding: "1.5rem", width: "100%", flex: 1 }}>
         {activeTab === "catalogue" && <CatalogueView onAddToCart={handleAddToCart} />}
         {activeTab === "orders" && (
           <OrderManager
@@ -158,9 +179,18 @@ export default function App() {
         {activeTab === "reorders" && <ReorderDashboard />}
       </main>
 
-      {/* Footer */}
-      <footer style={{ borderTop: "1px solid var(--border-color)", padding: "1rem 1.5rem", textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-        VIKMO DealerDesk — PostgreSQL Concurrency Safe · 18% GST Paisa Precision · Prompt Injection Hardened · Leakage-Free Forecasts
+      {/* Clean Commercial Footer */}
+      <footer
+        style={{
+          borderTop: "1px solid var(--border-light)",
+          background: "var(--bg-surface)",
+          padding: "0.85rem 1.5rem",
+          textAlign: "center",
+          fontSize: "0.75rem",
+          color: "var(--text-muted)",
+        }}
+      >
+        VIKMO DealerDesk · Inventory and Order Operations Desk · Central Hub Bengaluru
       </footer>
     </div>
   );

@@ -117,110 +117,128 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
   return (
     <div className="animate-fade">
       {/* Navigation tabs between Cart and Orders */}
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
         <button
           onClick={() => setActiveTab("cart")}
           className={activeTab === "cart" ? "btn-primary" : "btn-secondary"}
+          style={{ fontSize: "0.8125rem", padding: "0.45rem 0.85rem" }}
         >
-          <ShoppingCart size={16} /> New Order Cart ({cart.length})
+          <ShoppingCart size={15} /> Active Cart ({cart.length})
         </button>
         <button
           onClick={() => { setActiveTab("orders"); fetchOrders(); }}
           className={activeTab === "orders" ? "btn-primary" : "btn-secondary"}
+          style={{ fontSize: "0.8125rem", padding: "0.45rem 0.85rem" }}
         >
-          <Package size={16} /> Orders History ({orders.length})
+          <Package size={15} /> Order History ({orders.length})
         </button>
       </div>
 
       {/* Notifications */}
       {errorBanner && (
-        <div style={{
-          marginBottom: "1.5rem", padding: "1rem", borderRadius: "8px",
-          background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(239, 68, 68, 0.3)",
-          display: "flex", alignItems: "center", gap: "0.5rem"
-        }}>
-          <AlertCircle size={20} />
-          <strong>Error:</strong> {errorBanner}
+        <div className="alert-box alert-error" style={{ marginBottom: "1.25rem" }}>
+          <AlertCircle size={16} />
+          <span><strong>Order Error:</strong> {errorBanner}</span>
         </div>
       )}
 
       {successBanner && (
-        <div style={{
-          marginBottom: "1.5rem", padding: "1rem", borderRadius: "8px",
-          background: "var(--success-bg)", color: "var(--success)", border: "1px solid rgba(16, 185, 129, 0.3)",
-          display: "flex", alignItems: "center", gap: "0.5rem"
-        }}>
-          <Check size={20} />
-          {successBanner}
+        <div className="alert-box alert-success" style={{ marginBottom: "1.25rem" }}>
+          <Check size={16} />
+          <span>{successBanner}</span>
         </div>
       )}
 
       {activeTab === "cart" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.25rem", alignItems: "start" }}>
           {/* Cart Table */}
           <div className="card">
-            <h2 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "1rem" }}>
+            <h2 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "0.75rem", color: "var(--text-primary)" }}>
               Cart Line Items
             </h2>
 
             {cart.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)" }}>
-                <ShoppingCart size={40} style={{ margin: "0 auto 0.5rem auto", opacity: 0.4 }} />
-                Your cart is currently empty. Browse the catalogue to add parts.
+                <ShoppingCart size={32} style={{ margin: "0 auto 0.5rem auto", opacity: 0.35 }} />
+                <div>Your cart is currently empty. Browse the catalogue to add parts.</div>
               </div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left", color: "var(--text-secondary)" }}>
-                    <th style={{ padding: "0.6rem" }}>SKU</th>
-                    <th style={{ padding: "0.6rem" }}>Part Name</th>
-                    <th style={{ padding: "0.6rem" }}>Unit Price</th>
-                    <th style={{ padding: "0.6rem" }}>Quantity</th>
-                    <th style={{ padding: "0.6rem", textAlign: "right" }}>Subtotal</th>
-                    <th style={{ padding: "0.6rem" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((item) => {
-                    const lineSub = (parseFloat(item.price) * item.quantity).toFixed(2);
-                    return (
-                      <tr key={item.sku} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                        <td style={{ padding: "0.6rem", fontFamily: "var(--font-mono)", color: "var(--accent-primary)" }}>{item.sku}</td>
-                        <td style={{ padding: "0.6rem", fontWeight: "600" }}>{item.name}</td>
-                        <td style={{ padding: "0.6rem" }}>₹{item.price}</td>
-                        <td style={{ padding: "0.6rem" }}>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => onUpdateQty(item.sku, parseInt(e.target.value, 10) || 1)}
-                            className="input-field"
-                            style={{ width: "65px", padding: "0.3rem 0.5rem" }}
-                          />
-                        </td>
-                        <td style={{ padding: "0.6rem", textAlign: "right", fontWeight: "700" }}>₹{lineSub}</td>
-                        <td style={{ padding: "0.6rem", textAlign: "right" }}>
-                          <button onClick={() => onRemoveItem(item.sku)} style={{ color: "var(--danger)" }}>
-                            <X size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "0.6rem 0.75rem" }}>SKU</th>
+                      <th style={{ padding: "0.6rem 0.75rem" }}>Part Description</th>
+                      <th style={{ padding: "0.6rem 0.75rem" }}>Unit Price</th>
+                      <th style={{ padding: "0.6rem 0.75rem" }}>Quantity</th>
+                      <th style={{ padding: "0.6rem 0.75rem", textAlign: "right" }}>Subtotal</th>
+                      <th style={{ padding: "0.6rem 0.75rem", width: "40px" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item) => {
+                      const lineSub = (parseFloat(item.price) * item.quantity).toFixed(2);
+                      return (
+                        <tr key={item.sku}>
+                          <td style={{ padding: "0.65rem 0.75rem", fontFamily: "var(--font-mono)", fontWeight: "600", fontSize: "0.8125rem" }}>
+                            {item.sku}
+                          </td>
+                          <td style={{ padding: "0.65rem 0.75rem", fontWeight: "500", fontSize: "0.85rem" }}>
+                            {item.name}
+                          </td>
+                          <td style={{ padding: "0.65rem 0.75rem", fontSize: "0.85rem" }}>
+                            ₹{item.price}
+                          </td>
+                          <td style={{ padding: "0.65rem 0.75rem" }}>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => onUpdateQty(item.sku, parseInt(e.target.value, 10) || 1)}
+                              className="input-field"
+                              style={{ width: "65px", padding: "0.25rem 0.45rem", textAlign: "center" }}
+                            />
+                          </td>
+                          <td style={{ padding: "0.65rem 0.75rem", textAlign: "right", fontWeight: "600", fontSize: "0.85rem" }}>
+                            ₹{lineSub}
+                          </td>
+                          <td style={{ padding: "0.65rem 0.75rem", textAlign: "center" }}>
+                            <button
+                              onClick={() => onRemoveItem(item.sku)}
+                              title="Remove item"
+                              style={{ color: "var(--text-muted)", padding: "0.2rem" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-primary)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
+                            >
+                              <X size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           {/* Checkout Panel */}
-          <div className="card" style={{ height: "fit-content" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "1rem" }}>
+          <div className="card">
+            <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "0.85rem", color: "var(--text-primary)" }}>
               Order Checkout
             </h3>
 
-            <div style={{ marginBottom: "1.2rem" }}>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.4rem" }}>
-                Select Ordering Dealer:
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.8125rem",
+                  fontWeight: 500,
+                  color: "var(--text-secondary)",
+                  marginBottom: "0.35rem",
+                }}
+              >
+                Select Ordering Dealer
               </label>
               <select
                 value={selectedDealer}
@@ -236,17 +254,35 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
               </select>
             </div>
 
-            <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1rem", marginBottom: "1.2rem", fontSize: "0.9rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Line Subtotal:</span>
-                <span>₹{cartSubtotal.toFixed(2)}</span>
+            <div
+              style={{
+                borderTop: "1px solid var(--border-light)",
+                paddingTop: "0.85rem",
+                marginBottom: "1rem",
+                fontSize: "0.85rem",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.45rem" }}>
+                <span style={{ color: "var(--text-muted)" }}>Line Subtotal</span>
+                <span style={{ fontWeight: 500 }}>₹{cartSubtotal.toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>GST (18% rounded):</span>
-                <span>₹{cartTax.toFixed(2)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.45rem" }}>
+                <span style={{ color: "var(--text-muted)" }}>GST (18% rounded)</span>
+                <span style={{ fontWeight: 500 }}>₹{cartTax.toFixed(2)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.1rem", fontWeight: "800", color: "var(--text-primary)", borderTop: "1px solid var(--border-color)", paddingTop: "0.5rem" }}>
-                <span>Grand Total:</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "1rem",
+                  fontWeight: "700",
+                  color: "var(--text-primary)",
+                  borderTop: "1px solid var(--border-light)",
+                  paddingTop: "0.6rem",
+                  marginTop: "0.4rem",
+                }}
+              >
+                <span>Grand Total</span>
                 <span>₹{cartGrandTotal.toFixed(2)}</span>
               </div>
             </div>
@@ -257,21 +293,33 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
               className="btn-primary"
               style={{ width: "100%", justifyContent: "center" }}
             >
-              Create DRAFT Order <ChevronRight size={16} />
+              Create Draft Order <ChevronRight size={15} />
             </button>
           </div>
         </div>
       ) : (
         /* Orders List Screen */
         <div>
-          <div className="card" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Filter by Status:</span>
+          <div
+            className="card"
+            style={{
+              marginBottom: "1.25rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+            }}
+          >
+            <div style={{ display: "flex", gap: "0.65rem", alignItems: "center" }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", fontWeight: 500 }}>
+                Status Filter:
+              </span>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="input-field"
-                style={{ padding: "0.4rem 0.8rem" }}
+                style={{ padding: "0.35rem 0.65rem" }}
               >
                 <option value="">All Orders</option>
                 <option value="DRAFT">DRAFT</option>
@@ -281,16 +329,19 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
                 <option value="CANCELLED">CANCELLED</option>
               </select>
             </div>
-            <button onClick={fetchOrders} className="btn-secondary" style={{ padding: "0.4rem 0.8rem" }}>
-              <RefreshCw size={14} /> Refresh
+            <button onClick={fetchOrders} className="btn-secondary" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8125rem" }}>
+              <RefreshCw size={14} /> Refresh Orders
             </button>
           </div>
 
           {loading ? (
-            <div style={{ textAlign: "center", padding: "3rem" }}>Loading orders...</div>
+            <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
+              <RefreshCw className="animate-spin" size={20} style={{ margin: "0 auto 0.5rem auto" }} />
+              <div>Loading dealer orders...</div>
+            </div>
           ) : orders.length === 0 ? (
             <div className="card" style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-              No orders found for the selected status.
+              No orders found for the selected status filter.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -299,64 +350,88 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
 
                 return (
                   <div key={o.order_number} className="card">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.6rem" }}>
-                      <div>
-                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "var(--accent-primary)", fontSize: "1.05rem" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.75rem",
+                        borderBottom: "1px solid var(--border-light)",
+                        paddingBottom: "0.6rem",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                        <span
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontWeight: "700",
+                            color: "var(--text-primary)",
+                            fontSize: "0.95rem",
+                          }}
+                        >
                           {o.order_number}
                         </span>
-                        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginLeft: "1rem" }}>
-                          Created: {new Date(o.created_at).toLocaleString()}
+                        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                          {new Date(o.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
                         <span className={statusBadgeClass}>{o.status}</span>
-                        <strong style={{ fontSize: "1.1rem" }}>₹{o.grand_total}</strong>
+                        <strong style={{ fontSize: "1rem", color: "var(--text-primary)" }}>₹{o.grand_total}</strong>
                       </div>
                     </div>
 
                     {/* Items table */}
-                    <table style={{ width: "100%", fontSize: "0.85rem", marginBottom: "1rem", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
-                          <th style={{ padding: "0.3rem" }}>SKU</th>
-                          <th style={{ padding: "0.3rem" }}>Name</th>
-                          <th style={{ padding: "0.3rem" }}>Qty</th>
-                          <th style={{ padding: "0.3rem" }}>Unit Price</th>
-                          <th style={{ padding: "0.3rem" }}>Subtotal</th>
-                          <th style={{ padding: "0.3rem" }}>18% Tax</th>
-                          <th style={{ padding: "0.3rem", textAlign: "right" }}>Line Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {o.items?.map((it, idx) => (
-                          <tr key={idx} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                            <td style={{ padding: "0.4rem", fontFamily: "var(--font-mono)" }}>{it.sku}</td>
-                            <td style={{ padding: "0.4rem" }}>{it.name}</td>
-                            <td style={{ padding: "0.4rem" }}>{it.quantity}</td>
-                            <td style={{ padding: "0.4rem" }}>₹{it.unit_price}</td>
-                            <td style={{ padding: "0.4rem" }}>₹{it.line_subtotal}</td>
-                            <td style={{ padding: "0.4rem" }}>₹{it.line_tax}</td>
-                            <td style={{ padding: "0.4rem", textAlign: "right", fontWeight: "600" }}>₹{it.line_total}</td>
+                    <div className="table-wrapper" style={{ marginBottom: "0.85rem" }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>SKU</th>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>Name</th>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>Qty</th>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>Unit Price</th>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>Subtotal</th>
+                            <th style={{ padding: "0.45rem 0.65rem" }}>18% Tax</th>
+                            <th style={{ padding: "0.45rem 0.65rem", textAlign: "right" }}>Line Total</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {o.items?.map((it, idx) => (
+                            <tr key={idx}>
+                              <td style={{ padding: "0.5rem 0.65rem", fontFamily: "var(--font-mono)", fontSize: "0.8125rem" }}>
+                                {it.sku}
+                              </td>
+                              <td style={{ padding: "0.5rem 0.65rem", fontSize: "0.8125rem" }}>{it.name}</td>
+                              <td style={{ padding: "0.5rem 0.65rem", fontSize: "0.8125rem" }}>{it.quantity}</td>
+                              <td style={{ padding: "0.5rem 0.65rem", fontSize: "0.8125rem" }}>₹{it.unit_price}</td>
+                              <td style={{ padding: "0.5rem 0.65rem", fontSize: "0.8125rem" }}>₹{it.line_subtotal}</td>
+                              <td style={{ padding: "0.5rem 0.65rem", fontSize: "0.8125rem" }}>₹{it.line_tax}</td>
+                              <td style={{ padding: "0.5rem 0.65rem", textAlign: "right", fontWeight: "600", fontSize: "0.8125rem" }}>
+                                ₹{it.line_total}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
                     {/* Action buttons */}
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.6rem" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
                       {o.status === "DRAFT" && (
                         <>
                           <button
                             onClick={() => handleAction(o.order_number, "cancel")}
                             className="btn-danger"
                           >
-                            <X size={14} /> Cancel
+                            <X size={14} /> Cancel Order
                           </button>
                           <button
                             onClick={() => handleAction(o.order_number, "confirm")}
                             className="btn-primary"
                           >
-                            <Check size={14} /> Confirm (Deduct Stock)
+                            <Check size={14} /> Confirm Order (Allocate Stock)
                           </button>
                         </>
                       )}
@@ -367,13 +442,13 @@ export default function OrderManager({ cart, onUpdateQty, onRemoveItem, onClearC
                             onClick={() => handleAction(o.order_number, "cancel")}
                             className="btn-danger"
                           >
-                            <X size={14} /> Cancel (Restore Stock)
+                            <X size={14} /> Cancel Order (Restore Stock)
                           </button>
                           <button
                             onClick={() => handleAction(o.order_number, "dispatch")}
                             className="btn-primary"
                           >
-                            <Truck size={14} /> Dispatch
+                            <Truck size={14} /> Dispatch Order
                           </button>
                         </>
                       )}
