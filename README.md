@@ -152,7 +152,7 @@ Full technical defenses with file and line citations are provided in [DECISIONS.
 
 ## 6. Video Walkthrough Outline
 
-*(Add unlisted video link here: YouTube / Loom / Google Drive)*
+> **Demo Video URL:** `[PLACEHOLDER: Insert unlisted video link here (YouTube / Loom / Google Drive) before final submission]`
 
 ### 5-Minute Walkthrough Structure:
 1. **0:00 - 1:00:** Problem statement, architecture overview, and clean run contract compliance.

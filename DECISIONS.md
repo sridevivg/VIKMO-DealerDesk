@@ -7,7 +7,7 @@ This document provides exact technical defenses and code-line citations for all 
 ## Part 1: Python / Django Track Decisions
 
 ### 1. Overselling Prevention & Concurrency Under Race Conditions
-- **Exact Code Citation:** [`core/services/order_service.py:180-210`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L180-L210)
+- **Exact Code Citation:** [`core/services/order_service.py:199-256`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L199-L256) (specifically lines 208-221 for pessimistic row locking with sorted SKUs)
 - **Mechanism:**
   All order confirmations execute inside a PostgreSQL database transaction (`with transaction.atomic():`). We query and lock the products using pessimistic row locking with sorted SKUs:
   ```python
@@ -40,8 +40,8 @@ This document provides exact technical defenses and code-line citations for all 
 
 ### 3. Unique Order Numbers & Idempotent Order Creation
 - **Exact Code Citation:** 
-  - Sequential Numbering: [`core/services/order_service.py:31-43`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L31-L43)
-  - Idempotency Guarantee: [`core/services/order_service.py:51-64`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L51-L64)
+  - Sequential Numbering: [`core/services/order_service.py:23-38`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L23-L38)
+  - Idempotency Guarantee: [`core/services/order_service.py:46-58`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L46-L58)
 - **Mechanism:**
   1. *Order Numbers (`ORD-YYYYMMDD-NNNN`):* We maintain a dedicated `DailyOrderSequence` table. When creating an order, we lock the current day's row in Asia/Kolkata timezone:
      ```python
@@ -71,7 +71,7 @@ This document provides exact technical defenses and code-line citations for all 
 ---
 
 ### 5. Status Transitions & Single Stock Restoration
-- **Exact Code Citation:** [`core/services/order_service.py:175-177`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L175-L177), [`core/services/order_service.py:228-245`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L228-L245)
+- **Exact Code Citation:** [`core/services/order_service.py:259-288`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/core/services/order_service.py#L259-L288) (specifically lines 266-287 for transaction lock, status validation, and stock restoration)
 - **Mechanism:**
   - Transitions are governed by an explicit state machine:
     - `DRAFT` $\to$ `CONFIRMED` $\to$ `DISPATCHED` $\to$ `DELIVERED`
@@ -172,10 +172,10 @@ This document provides exact technical defenses and code-line citations for all 
 ---
 
 ### 6. Forecasting Approach & Zero Future-Data Leakage
-- **Exact Code Citation:** [`ml/train_forecast.py:53-56`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/ml/train_forecast.py#L53-L56)
+- **Exact Code Citation:** [`ml/train_forecast.py:54-110`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/ml/train_forecast.py#L54-L110)
 - **Leakage Prevention Line:**
   ```python
-  # Line 55: Strictly enforces that training features observe data prior to validation horizon:
+  # Lines 59-62: Strictly enforces that training features observe data prior to validation horizon:
   train_history = sales_df[~sales_df["week_start"].isin(val_weeks)].copy()
   val_actuals = sales_df[sales_df["week_start"].isin(val_weeks)].copy()
   ```
@@ -190,7 +190,7 @@ This document provides exact technical defenses and code-line citations for all 
 ---
 
 ### 7. Edge Cases: Diwali, Promotions, Rare SKUs, and New SKUs
-- **Exact Code Citation:** [`ml/train_forecast.py:112-168`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/ml/train_forecast.py#L112-L168)
+- **Exact Code Citation:** [`ml/train_forecast.py:112-209`](file:///Users/sridevi/Downloads/VIKMO%20DealerDesk%20Assignment/ml/train_forecast.py#L112-L209)
 - **Handling Strategy:**
   1. *Diwali Shift:* Diwali dates move annually (`2024-11-01`, `2025-10-21`, `2026-11-08`). Rather than using calendar months, we engineered a floating feature `weeks_to_diwali`. Because Diwali in 2026 is on Nov 8, the forecast window (`2026-09-28` to `2026-10-19`) captures weeks -6 to -3, capturing early dealer stocking with an adjusted festive lift ($1.0 + 0.07 \times (6 + \Delta)$).
   2. *Promotions:* History showed promotions drive a **2.22x sales surge** (70.46 units vs. 31.80 units). Planned promotions from `promo_calendar.csv` were incorporated as an explicit demand multiplier.
