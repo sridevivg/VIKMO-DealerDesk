@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db.models import Q
 from core.models import Product, Dealer, Order
 from core.services.order_service import create_draft_order, OrderServiceException
+from core.services.reorder_service import load_forecast_data
 from core.services.gst_calculator import format_money
 
 # In-memory session store for cross-turn conversation context
@@ -56,9 +57,10 @@ def execute_check_stock(sku: str) -> dict:
     """
     Fetches real-time stock and catalogue price from the database for a specific SKU.
     """
-    product = Product.objects.filter(sku=sku.strip()).first()
+    clean_sku = sku.strip()
+    product = Product.objects.filter(Q(sku__iexact=clean_sku) | Q(sku=clean_sku.upper())).first()
     if not product:
-        return {"error": f"SKU '{sku}' not found."}
+        return {"error": f"SKU '{clean_sku}' not found."}
     return {
         "sku": product.sku,
         "name": product.name,
@@ -66,6 +68,48 @@ def execute_check_stock(sku: str) -> dict:
         "price": format_money(product.price),
         "vehicle_fitment": product.vehicle_fitment,
     }
+
+
+def execute_get_forecast(sku: str) -> dict:
+    """
+    Fetches 4-week demand predictions from the forecasting service for a specific SKU.
+    """
+    clean_sku = sku.strip().upper()
+    forecast_data = load_forecast_data()
+    if clean_sku not in forecast_data:
+        return {"error": f"Forecast for SKU '{clean_sku}' not found."}
+    return {
+        "sku": clean_sku,
+        "forecast": forecast_data[clean_sku],
+    }
+
+
+EXCLUDED_SKU_TOKENS = {
+    "IN-STOCK", "OUT-OF-STOCK", "ON-HAND", "RE-ORDER", "DIRECT-FIT", "REAL-TIME",
+    "MT-15", "FZ-S", "FZ-25", "FZ-X", "R15-V3", "R15-V4",
+    "VIKMO-FREE-90", "ADMIN-MODE",
+}
+
+
+def extract_sku(text: str) -> Optional[str]:
+    """
+    Extracts candidate SKU from user message, excluding vehicle designations,
+    common hyphenated English words, and prompt-injection tokens.
+    """
+    # 1. Hyphenated SKU pattern: e.g. BRK-1044, FIL-1016, NONEXISTENT-9999, ASST-PAD-1
+    tokens = re.findall(r"\b([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)\b", text)
+    for t in tokens:
+        if t.upper() not in EXCLUDED_SKU_TOKENS:
+            return t.upper()
+
+    # 2. Unhyphenated pattern: e.g. BRK1044 or BRK 1044 if it resolves in catalogue
+    unhyphenated = re.findall(r"\b([A-Za-z]{2,5})\s*[-_]?\s*(\d{3,5})\b", text)
+    for prefix, num in unhyphenated:
+        cand = f"{prefix.upper()}-{num}"
+        if cand not in EXCLUDED_SKU_TOKENS and Product.objects.filter(sku__iexact=cand).exists():
+            return cand
+
+    return None
 
 
 def execute_create_draft_order(dealer_id: int, items: list[dict]) -> dict:
@@ -123,8 +167,14 @@ def _run_deterministic_agent(session_id: str, dealer_id: int, user_message: str,
         reply = "I cannot apply unauthorized discounts or enter admin mode. All product prices and stock levels are strictly governed by our official catalogue."
         return {"reply": reply, "cited_skus": [], "tool_calls": [], "actions": []}
 
-    # 1. Greeting / generic help (using word boundary check to avoid false positives like 'dealership')
-    if re.search(r"\b(hello|hi|hey|help|greetings)\b", msg_lower) and not re.search(r"\b(order|put|reserve|buy|part|brake|filter|chain)\b", msg_lower):
+    target_sku = extract_sku(user_message)
+
+    # 1. Greeting / generic help (using word boundary check to avoid false positives)
+    if (
+        re.search(r"\b(hello|hi|hey|help|greetings)\b", msg_lower)
+        and not target_sku
+        and not re.search(r"\b(order|put|reserve|buy|part|brake|filter|chain|stock|inventory|available|availability|how many|forecast|predict|demand)\b", msg_lower)
+    ):
         reply = (
             "Hello! I am your VIKMO Dealer Assistant. I can help you find parts for specific motorcycles or cars, "
             "check real-time stock and prices in our Bengaluru warehouse, and prepare draft orders for your dealership. "
@@ -134,26 +184,12 @@ def _run_deterministic_agent(session_id: str, dealer_id: int, user_message: str,
         history.append({"role": "assistant", "reply": reply})
         return {"reply": reply, "cited_skus": [], "tool_calls": [], "actions": []}
 
-    # 2. Ambiguity check: e.g. "Do you have brake pads?" without vehicle
-    parts_keywords = ["brake pad", "chain", "filter", "oil", "spark plug", "tyre", "grip", "light", "clutch"]
-    mentioned_part = next((p for p in parts_keywords if p in msg_lower), None)
-
-    # Check known vehicle fitments
-    known_vehicles = [
-        "pulsar 150", "duke 390", "classic 350", "mt-15", "apache rtr 160",
-        "hunter 350", "gixxer sf", "duke 200", "dominar 400", "i20", "creta"
-    ]
-    mentioned_vehicle = next((v for v in known_vehicles if v in msg_lower), None)
-
-    # If part asked without vehicle, clarify
-    if mentioned_part and not mentioned_vehicle and "order" not in msg_lower and "put" not in msg_lower:
-        reply = f"We have several {mentioned_part} options in stock. Could you please specify which vehicle make and model you need it for?"
-        history.append({"role": "user", "message": user_message})
-        history.append({"role": "assistant", "reply": reply})
-        return {"reply": reply, "cited_skus": [], "tool_calls": [], "actions": []}
-
-    # 3. Create Draft Order intent: e.g. "Put 5 units of BRK-1044 aside", "Order 3 of BRK-1044"
-    order_match = re.search(r"(?:order|put|reserve|buy)\s+(\d+)\s+(?:units?|pieces?|of|\s)+([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)", user_message, re.IGNORECASE)
+    # 2. Create Draft Order intent: e.g. "Put 5 units of BRK-1044 aside", "Order 3 of BRK-1044"
+    order_match = re.search(
+        r"(?:order|put|reserve|buy|draft)\s+(?:aside\s+)?(?:an?\s+order\s+for\s+)?(?:about\s+)?(\d+)\s+(?:units?|pieces?|of|\s)+([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)",
+        user_message,
+        re.IGNORECASE,
+    )
     if order_match:
         qty = int(order_match.group(1))
         sku = order_match.group(2).upper()
@@ -183,10 +219,113 @@ def _run_deterministic_agent(session_id: str, dealer_id: int, user_message: str,
         history.append({"role": "assistant", "reply": reply})
         return {"reply": reply, "cited_skus": cited_skus, "tool_calls": tool_calls, "actions": actions}
 
-    # 4. Search parts intent
-    query_text = mentioned_part or "parts"
+    # 3. Demand Forecast intent:
+    # e.g. "Show the forecast for FIL-1016 for the next four weeks", "Predict demand for BRK-1044"
+    is_forecast_query = bool(
+        re.search(
+            r"\b(forecast|forecasting|predict|predicting|prediction|predictions|projected|projection|demand)\b",
+            msg_lower,
+        )
+    )
+
+    if is_forecast_query:
+        if target_sku:
+            tool_calls.append({"name": "get_forecast", "arguments": {"sku": target_sku}})
+            forecast_res = execute_get_forecast(target_sku)
+
+            if "error" in forecast_res:
+                reply = (
+                    f"Forecast for SKU '{target_sku}' not found. "
+                    f"Demand forecasting is currently tracked for the 40 critical reorder SKUs."
+                )
+            else:
+                real_sku = forecast_res["sku"]
+                cited_skus.append(real_sku)
+                product = Product.objects.filter(Q(sku__iexact=real_sku) | Q(sku=real_sku.upper())).first()
+                prod_label = f"{product.name} ({real_sku})" if product else real_sku
+                predictions = forecast_res["forecast"]
+                forecast_lines = "\n".join(
+                    f"- Week {item['week_start']}: {item['forecast_units']} units"
+                    for item in predictions
+                )
+                reply = (
+                    f"Demand forecast for {prod_label} for the next four weeks:\n"
+                    f"{forecast_lines}"
+                )
+
+            history.append({"role": "user", "message": user_message})
+            history.append({"role": "assistant", "reply": reply})
+            return {"reply": reply, "cited_skus": cited_skus, "tool_calls": tool_calls, "actions": actions}
+        else:
+            reply = (
+                "Please specify which part or SKU you would like demand predictions for "
+                "(for example, 'Show the forecast for FIL-1016 for the next four weeks'). "
+                "Demand forecasts are tracked for 40 key catalogue items."
+            )
+            history.append({"role": "user", "message": user_message})
+            history.append({"role": "assistant", "reply": reply})
+            return {"reply": reply, "cited_skus": [], "tool_calls": [], "actions": []}
+
+    # 4. Stock / Inventory Lookup intent for a specific SKU:
+    # e.g. "Check stock for BRK-1044", "How many BRK-1044 are available?", "Show inventory for BRK-1044"
+    if target_sku:
+        tool_calls.append({"name": "check_stock", "arguments": {"sku": target_sku}})
+        stock_info = execute_check_stock(target_sku)
+
+        if "error" in stock_info:
+            reply = f"I could not find product with SKU '{target_sku}' in our catalogue. Please verify the part number."
+        else:
+            real_sku = stock_info["sku"]
+            cited_skus.append(real_sku)
+            stock_qty = stock_info["stock"]
+            prod_name = stock_info["name"]
+            price_val = stock_info["price"]
+            fitment = stock_info.get("vehicle_fitment", "")
+
+            if stock_qty > 0:
+                reply = (
+                    f"We currently have {stock_qty} units of {prod_name} ({real_sku}) in stock "
+                    f"at ₹{price_val} each (fits {fitment})."
+                )
+            else:
+                reply = (
+                    f"{prod_name} ({real_sku}) is currently out of stock (0 units available) "
+                    f"at ₹{price_val} each."
+                )
+
+        history.append({"role": "user", "message": user_message})
+        history.append({"role": "assistant", "reply": reply})
+        return {"reply": reply, "cited_skus": cited_skus, "tool_calls": tool_calls, "actions": actions}
+
+    # 4. Ambiguity check: e.g. "Do you have brake pads?" without vehicle
+    parts_keywords = [
+        "brake pad", "brake shoe", "brake disc", "chain", "filter", "oil",
+        "spark plug", "tyre", "tire", "grip", "light", "clutch", "battery",
+        "mirror", "horn", "suspension", "brake"
+    ]
+    mentioned_part = next((p for p in parts_keywords if p in msg_lower), None)
+
+    # Check known vehicle fitments
+    known_vehicles = [
+        "pulsar 150", "pulsar ns200", "pulsar", "duke 390", "duke 200", "duke",
+        "classic 350", "hunter 350", "himalayan 450", "mt-15", "apache rtr 160",
+        "apache rtr 200", "apache", "gixxer sf", "dominar 400", "dominar",
+        "i20", "creta", "baleno", "swift", "nexon", "thar", "splendor", "xtreme 160r",
+        "hornet 2.0", "shine 125"
+    ]
+    mentioned_vehicle = next((v for v in known_vehicles if v in msg_lower), None)
+
+    # If part asked without vehicle, clarify
+    if mentioned_part and not mentioned_vehicle and "order" not in msg_lower and "put" not in msg_lower:
+        reply = f"We have several {mentioned_part} options in stock. Could you please specify which vehicle make and model you need it for?"
+        history.append({"role": "user", "message": user_message})
+        history.append({"role": "assistant", "reply": reply})
+        return {"reply": reply, "cited_skus": [], "tool_calls": [], "actions": []}
+
+    # 5. Search parts intent
+    query_text = mentioned_part or ""
     vehicle_arg = mentioned_vehicle or ""
-    tool_calls.append({"name": "search_parts", "arguments": {"query": query_text, "vehicle": vehicle_arg}})
+    tool_calls.append({"name": "search_parts", "arguments": {"query": query_text or "parts", "vehicle": vehicle_arg}})
     parts = execute_search_parts(query=query_text, vehicle=vehicle_arg)
 
     if parts:
