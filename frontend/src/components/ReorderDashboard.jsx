@@ -74,7 +74,7 @@ export default function ReorderDashboard() {
         <div>
           <h2 style={{ fontSize: "1.2rem", fontWeight: "700" }}>Inventory Demand & Reorders</h2>
           <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-            Calculated via Contract §10.2: Safety Stock $\lceil 1.65 \times \sigma \times \sqrt{L} \rceil$ & Lead Time Demand
+            Calculated via Contract §10.2: Safety Stock ⌈1.65 × σ × √L⌉ & Lead Time Demand
           </span>
         </div>
 
